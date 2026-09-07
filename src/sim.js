@@ -914,6 +914,18 @@ class Environment {
       }
     }
     this.stats.generation++;
+    // population cap: when too dense, increase starvation to naturally thin population
+    if (this.biots.length > this.options.maxPopulation) {
+      const excess = this.biots.length - this.options.maxPopulation;
+      // sort by energy (lowest first) and remove weakest biots
+      this.biots.sort((a, b) => a.energy - b.energy);
+      for (let i = 0; i < excess && i < this.biots.length; i++) {
+        this.biots[i].energy = 0;
+        this.biots.splice(i, 1);
+        i--;
+        this.stats.deaths++;
+      }
+    }
     // sickness pressure: every 512 gens, if biots cover >50% of area, someone gets sick
     if ((this.stats.generation & 0x1FF) === 0x1FF && this.biots.length) {
       let covered = 0;

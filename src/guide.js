@@ -1,9 +1,10 @@
 // In-app field guide — renders docs/BIOT-GUIDE.md as a styled overlay (G key).
+// Uses fetch in web/Capacitor mode, fs in Electron mode.
 'use strict';
-const fs = require('fs');
-const path = require('path');
 
-const GUIDE_PATH = path.join(__dirname, '..', 'docs', 'BIOT-GUIDE.md');
+const isElectron = typeof window !== 'undefined' && typeof window.process !== 'undefined' && window.process.type === 'renderer';
+
+const GUIDE_PATH = 'docs/BIOT-GUIDE.md';
 
 function escapeHtml(s) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -13,8 +14,6 @@ function inline(s) {
   return escapeHtml(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\*(.+?)\*/g, '<i>$1</i>');
 }
 
-<<<<<<< Updated upstream
-=======
 // Load guide markdown — async in web mode, sync in Electron
 function loadGuide() {
   if (isElectron) {
@@ -35,7 +34,6 @@ function loadGuide() {
   }
 }
 
->>>>>>> Stashed changes
 // minimal markdown -> html for the subset BIOT-GUIDE.md uses
 function mdToHtml(md) {
   const out = [];
@@ -66,7 +64,7 @@ function mdToHtml(md) {
       if (!inTable) { out.push('<table>'); inTable = true; tableRow = 0; }
       const cells = t.slice(1, -1).split('|').map(c => inline(c.trim()));
       const tag = tableRow === 0 ? 'th' : 'td';
-      out.push('<tr>' + cells.map(c => `<${tag}>${c}</${tag}>`).join('') + '</tr>');
+      out.push('<tr>' + cells.map(c => '<' + tag + '>' + c + '</' + tag + '>').join('') + '</tr>');
       tableRow++;
       continue;
     }
@@ -124,16 +122,15 @@ class Guide {
         #biot-guide li { margin:3px 0; }
       </style>
       <div class="guide-title">BIOT FIELD GUIDE <span class="guide-close" id="guide-close">[X]</span></div>
-      <div class="guide-body" id="guide-body"></div>
+      <div class="guide-body" id="guide-body">Loading guide...</div>
     `;
     document.body.appendChild(el);
     this.el = el;
-    try {
-      const md = fs.readFileSync(GUIDE_PATH, 'utf8');
+    this.loaded = false;
+    loadGuide().then(md => {
       el.querySelector('#guide-body').innerHTML = mdToHtml(md);
-    } catch (e) {
-      el.querySelector('#guide-body').textContent = 'Could not load BIOT-GUIDE.md: ' + e.message;
-    }
+      this.loaded = true;
+    });
     el.querySelector('#guide-close').onclick = () => this.hide();
   }
 
@@ -142,4 +139,4 @@ class Guide {
   toggle() { this.visible ? this.hide() : this.show(); }
 }
 
-module.exports = { Guide, mdToHtml };
+module.exports = { Guide, mdToHtml, loadGuide };

@@ -97,23 +97,31 @@ canvas.addEventListener('mousedown', (e) => {
   if (!selected) inspector.style.display = 'none';
 });
 
-function drawBiot(b) {
-  const sick = b.nSick > 0;
-  let lastColor = -1;
-  for (let i = 0; i < b.genes; i++) {
-    if (b.state[i] <= 0) continue;
-    let pen = sick ? G.PURPLE_LEAF : b.nType[i];
-    if (!sick && b.state[i] !== b.distance[i]) pen += G.DIM_COLOR; // injured segment = dark shade
-    if (pen >= PEN_COLORS.length) pen = G.GREY_LEAF;
-    if (pen !== lastColor) { ctx.strokeStyle = PEN_COLORS[pen]; lastColor = pen; }
+function drawAllBiots() {
+  const byColor = new Map();
+  for (const b of env.biots) {
+    const sick = b.nSick > 0;
+    for (let i = 0; i < b.genes; i++) {
+      if (b.state[i] <= 0) continue;
+      let pen = sick ? G.PURPLE_LEAF : b.nType[i];
+      if (!sick && b.state[i] !== b.distance[i]) pen += G.DIM_COLOR;
+      if (pen >= PEN_COLORS.length) pen = G.GREY_LEAF;
+      if (!byColor.has(pen)) byColor.set(pen, []);
+      byColor.get(pen).push(b.x1(i), b.y1(i), b.x2(i), b.y2(i));
+    }
+  }
+  for (const [pen, segments] of byColor) {
+    ctx.strokeStyle = PEN_COLORS[pen];
     ctx.beginPath();
-    ctx.moveTo(b.x1(i) + 0.5, b.y1(i) + 0.5);
-    ctx.lineTo(b.x2(i) + 0.5, b.y2(i) + 0.5);
+    for (let i = 0; i < segments.length; i += 4) {
+      ctx.moveTo(segments[i], segments[i + 1]);
+      ctx.lineTo(segments[i + 2], segments[i + 3]);
+    }
     ctx.stroke();
   }
-  if (b === selected) {
+  if (selected) {
     ctx.strokeStyle = '#808080';
-    ctx.strokeRect(b.left - 2, b.top - 2, b.width() + 4, b.height() + 4);
+    ctx.strokeRect(selected.left - 2, selected.top - 2, selected.width() + 4, selected.height() + 4);
   }
 }
 
@@ -139,7 +147,7 @@ function frame() {
   ctx.fillStyle = '#000';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.lineWidth = 1;
-  for (const b of env.biots) drawBiot(b);
+  drawAllBiots();
   hud.textContent =
     `Primordial Life  |  pop ${env.biots.length}  gen ${env.stats.generation}` +
     `  births ${env.stats.births}  deaths ${env.stats.deaths}` +

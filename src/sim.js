@@ -820,7 +820,7 @@ class Environment {
       startEnergy: 400 * 8, friction: 0.005, chance: 12,
       initialPopulation: 20, nSexual: 3, nSick: 200,
       armsPerBiot: 0, typesPerBiot: 0, segmentsPerArm: 0,
-      maxPopulation: 500,  // with spatial hashing, O(n) grid lookup per biot
+      maxPopulation: 50,  // ecosystem self-regulates around 16-24; this is a safety ceiling
       leafMass: null, leafContact: null, newType: null
     }, opts || {});
     // leafContact matrix

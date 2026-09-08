@@ -7,7 +7,8 @@ const path = require('path');
 let ctx = null;
 let enabled = true;
 let lastPlay = {};
-const buffers = {};
+const rawBuffers = {};
+const decodedBuffers = {};
 
 function ac() {
   if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -15,11 +16,22 @@ function ac() {
   return ctx;
 }
 
-// preload WAV
+// preload WAV bytes (decoding happens lazily once we have an AudioContext)
 ['birth.wav'].forEach(file => {
   const p = path.join(__dirname, 'sounds', file); // __dirname IS src/, WAV lives in src/sounds/
-  buffers[file] = fs.readFileSync(p);
+  rawBuffers[file] = fs.readFileSync(p);
 });
+
+function decodeWav(file, cb) {
+  if (decodedBuffers[file]) { cb(decodedBuffers[file]); return; }
+  const a = ac();
+  // copy into a fresh ArrayBuffer — decodeAudioData can detach/consume the buffer
+  const raw = rawBuffers[file];
+  const arrayBuffer = raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength);
+  a.decodeAudioData(arrayBuffer,
+    (decoded) => { decodedBuffers[file] = decoded; cb(decoded); },
+    (err) => console.error('decodeAudioData failed for', file, err));
+}
 
 // f0->f1 sweep, given wave/duration/volume
 function blip(name, f0, f1, dur, type, vol, throttleMs) {
@@ -44,13 +56,13 @@ const Sounds = {
   start()      { blip('start',      220, 880, 0.35, 'triangle', 0.15); },
   birth() {
     if (!enabled) return;
-    const a = ac();
-    const b = a.createBuffer(1, buffers['birth.wav'].length / 4, 44100);
-    b.getChannelData(0).set(new Float32Array(buffers['birth.wav']));
-    const s = a.createBufferSource();
-    s.buffer = b;
-    s.connect(a.destination);
-    s.start(a.currentTime);
+    decodeWav('birth.wav', (audioBuffer) => {
+      const a = ac();
+      const s = a.createBufferSource();
+      s.buffer = audioBuffer;
+      s.connect(a.destination);
+      s.start(a.currentTime);
+    });
   },
   mate()       { blip('mate',       660, 990, 0.15, 'sine',     0.10, 150); },
   eaten()      { blip('eaten',      330, 110, 0.10, 'sawtooth', 0.08, 60); },

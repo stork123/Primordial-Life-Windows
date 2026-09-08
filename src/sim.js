@@ -899,6 +899,29 @@ class Environment {
   }
   // one full pass over all biots (== one "generation" tick of the original Skip loop)
   step() {
+    // population cap FIRST — skip expensive collision checks when too many biots
+    if (this.biots.length > this.options.maxPopulation) {
+      this.stats.generation++;
+      // just do starvation decay, skip movement and collision checks
+      const toRemove = [];
+      for (let i = 0; i < this.biots.length; i++) {
+        const b = this.biots[i];
+        b.age++;
+        b.energy -= b.totalDistance || 1;
+        if (b.energy <= 0 || b.totalDistance <= 0) {
+          this.stats.deaths++;
+          toRemove.push(i);
+        }
+      }
+      for (let i = toRemove.length - 1; i >= 0; i--) this.biots.splice(toRemove[i], 1);
+      if (this.biots.length === 0) {
+        this.stats.extinctions++;
+        this.emit('extinction');
+        this.createBiots();
+      }
+      return;
+    }
+
     // rebuild spatial hash grid for this frame
     this.grid.clear();
     for (const b of this.biots) {
@@ -917,18 +940,6 @@ class Environment {
       }
     }
     this.stats.generation++;
-    // population cap: when too dense, increase starvation to naturally thin population
-    if (this.biots.length > this.options.maxPopulation) {
-      const excess = this.biots.length - this.options.maxPopulation;
-      // sort by energy (lowest first) and remove weakest biots
-      this.biots.sort((a, b) => a.energy - b.energy);
-      for (let i = 0; i < excess && i < this.biots.length; i++) {
-        this.biots[i].energy = 0;
-        this.biots.splice(i, 1);
-        i--;
-        this.stats.deaths++;
-      }
-    }
     // sickness pressure: every 512 gens, if biots cover >50% of area, someone gets sick
     if ((this.stats.generation & 0x1FF) === 0x1FF && this.biots.length) {
       let covered = 0;

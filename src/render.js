@@ -19,20 +19,24 @@ let stepsPerFrame = 1;
 let selected = null;
 
 function newWorld() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-  env = new Environment(canvas.width, canvas.height, (Date.now() & 0x7fffffff), { initialPopulation: 20 });
-  env.on('birth', () => Sounds.birth());
-  env.on('mate', () => Sounds.mate());
-  env.on('eaten', () => Sounds.eaten());
-  env.on('noEnergy', () => Sounds.noEnergy());
-  env.on('tooOld', () => Sounds.tooOld());
-  env.on('extinction', () => Sounds.extinction());
-  Sounds.start();
-  selected = null;
-  inspector.style.display = 'none';
-  if (editor) editor.hide();
-  if (pendingRelease) pendingRelease = null;
+  try {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    env = new Environment(canvas.width, canvas.height, (Date.now() & 0x7fffffff), { initialPopulation: 20 });
+    env.on('birth', () => Sounds.birth());
+    env.on('mate', () => Sounds.mate());
+    env.on('eaten', () => Sounds.eaten());
+    env.on('noEnergy', () => Sounds.noEnergy());
+    env.on('tooOld', () => Sounds.tooOld());
+    env.on('extinction', () => Sounds.extinction());
+    Sounds.start();
+    selected = null;
+    inspector.style.display = 'none';
+    if (editor) editor.hide();
+    if (pendingRelease) pendingRelease = null;
+  } catch (e) {
+    console.error('newWorld() failed:', e && e.stack || e);
+  }
 }
 
 let editor = null;
@@ -40,6 +44,13 @@ let pendingRelease = null;
 let guide;
 try { guide = new Guide(); }
 catch (e) { console.error('Guide failed to initialize:', e); guide = { visible: false, toggle() {}, hide() {} }; }
+
+window.addEventListener('error', (e) => {
+  console.error('window error:', e.error && e.error.stack || e.message);
+});
+window.addEventListener('unhandledrejection', (e) => {
+  console.error('unhandled rejection:', e.reason && e.reason.stack || e.reason);
+});
 
 function placePendingRelease(cx, cy) {
   if (!pendingRelease) return false;
@@ -143,18 +154,23 @@ function updateInspector() {
 }
 
 function frame() {
-  if (!paused) for (let s = 0; s < stepsPerFrame; s++) env.step();
-  ctx.fillStyle = '#000';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.lineWidth = 1;
-  drawAllBiots();
-  hud.textContent =
-    `Primordial Life  |  pop ${env.biots.length}  gen ${env.stats.generation}` +
-    `  births ${env.stats.births}  deaths ${env.stats.deaths}` +
-    `  extinctions ${env.stats.extinctions}` +
-    (Sounds.isEnabled() ? '' : '  [MUTED]') +
-    (paused ? '  [PAUSED]' : (stepsPerFrame > 1 ? `  x${stepsPerFrame}` : ''));
-  updateInspector();
+  try {
+    if (!paused) for (let s = 0; s < stepsPerFrame; s++) env.step();
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.lineWidth = 1;
+    drawAllBiots();
+    hud.textContent =
+      `Primordial Life  |  pop ${env.biots.length}  gen ${env.stats.generation}` +
+      `  births ${env.stats.births}  deaths ${env.stats.deaths}` +
+      `  extinctions ${env.stats.extinctions}` +
+      (Sounds.isEnabled() ? '' : '  [MUTED]') +
+      (paused ? '  [PAUSED]' : (stepsPerFrame > 1 ? `  x${stepsPerFrame}` : ''));
+    updateInspector();
+  } catch (e) {
+    console.error('frame() error (sim/render continues):', e && e.stack || e);
+    hud.textContent = `Primordial Life  |  ERROR — check log, press R to restart: ${e && e.message}`;
+  }
   requestAnimationFrame(frame);
 }
 

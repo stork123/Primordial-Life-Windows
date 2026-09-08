@@ -845,7 +845,7 @@ class Environment {
     this.cursor = 0;
     this.sampleCounter = 0;
     this.listeners = {};
-    this.gridSize = 120; // cell size for spatial hashing
+    this.gridSize = 200; // cell size for spatial hashing - larger to reduce cell crowding
     this.grid = new Map();
     this.createBiots();
   }
@@ -886,9 +886,12 @@ class Environment {
         const key = (cx+dx) + ',' + (cy+dy);
         const nearby = this.grid.get(key);
         if (!nearby) continue;
+        let checked = 0;
         for (const b of nearby) {
           if (b === me) continue;
-          if (rectsTouch(me, b)) out.push(b);
+          if (rectsTouch(me, b)) { out.push(b); }
+          checked++;
+          if (checked > 50) break; // limit collision checks per cell to prevent O(n²) freeze
         }
       }
     }

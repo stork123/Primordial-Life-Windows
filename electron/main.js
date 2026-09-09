@@ -3,6 +3,15 @@ const { app, BrowserWindow, Menu } = require("electron");
 const path = require("path");
 const fs = require("fs");
 
+// Diagnostics confirmed the JS main thread and Electron main process never stall
+// during the visible ~5s pauses (independent heartbeats stayed on schedule the
+// whole time). That isolates the freeze to GPU/compositor-level frame presentation
+// (draws happen, they just don't reach the screen for several seconds) rather than
+// a script bug. This is a simple Canvas2D renderer with modest draw volume, so we
+// disable GPU hardware acceleration and fall back to software rendering, which is
+// far more predictable and avoids GPU driver/compositor backpressure entirely.
+app.disableHardwareAcceleration();
+
 app.commandLine.appendSwitch("enable-precise-memory-info");
 
 const logDir = app.getPath("userData");
@@ -55,17 +64,6 @@ function createWindow() {
 }
 
 process.on("uncaughtException", (err) => log(`MAIN UNCAUGHT: ${err.stack || err}`));
-
-// Independent heartbeat from the main process (separate from renderer/GPU).
-// If this keeps ticking on schedule during a visible freeze, the stall is isolated
-// to the renderer process or GPU/compositor, not the whole app / OS.
-let lastMainHeartbeat = Date.now();
-setInterval(() => {
-  const now = Date.now();
-  const gap = now - lastMainHeartbeat;
-  lastMainHeartbeat = now;
-  if (gap > 2500) log(`MAIN HEARTBEAT LATE: gap=${gap}ms`);
-}, 2000);
 
 app.on("window-all-closed", () => app.quit());
 app.on("activate", () => {

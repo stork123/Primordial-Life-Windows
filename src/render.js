@@ -2,7 +2,6 @@
 'use strict';
 const { Environment } = require('./sim.js');
 const G = require('./genotype.js');
-const Sounds = require('./sounds.js');
 
 const { PEN_COLORS } = require('./ui-colors.js');
 const { BiotEditor } = require('./editor.js');
@@ -23,13 +22,6 @@ function newWorld() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     env = new Environment(canvas.width, canvas.height, (Date.now() & 0x7fffffff), { initialPopulation: 20 });
-    env.on('birth', () => Sounds.birth());
-    env.on('mate', () => Sounds.mate());
-    env.on('eaten', () => Sounds.eaten());
-    env.on('noEnergy', () => Sounds.noEnergy());
-    env.on('tooOld', () => Sounds.tooOld());
-    env.on('extinction', () => Sounds.extinction());
-    Sounds.start();
     selected = null;
     inspector.style.display = 'none';
     if (editor) editor.hide();
@@ -59,7 +51,6 @@ function placePendingRelease(cx, cy) {
   pendingRelease.setScreenRect();
   env.biots.push(pendingRelease);
   pendingRelease = null;
-  Sounds.birth();
   return true;
 }
 
@@ -89,7 +80,6 @@ window.addEventListener('keydown', (e) => {
   if (['INPUT','SELECT','TEXTAREA'].includes(tag) || e.target.isContentEditable) return;
   if (e.code === 'Space') { paused = !paused; e.preventDefault(); }
   else if (e.key === 'r' || e.key === 'R') newWorld();
-  else if (e.key === 's' || e.key === 'S') Sounds.toggle();
   else if (e.key === 'e' || e.key === 'E') editor.toggle();
   else if (e.key === 'g' || e.key === 'G') guide.toggle();
   else if (e.key === 'Escape') { if (guide.visible) guide.hide(); else if (editor && editor.visible) editor.hide(); }
@@ -164,7 +154,6 @@ function frame() {
       `Primordial Life  |  pop ${env.biots.length}  gen ${env.stats.generation}` +
       `  births ${env.stats.births}  deaths ${env.stats.deaths}` +
       `  extinctions ${env.stats.extinctions}` +
-      (Sounds.isEnabled() ? '' : '  [MUTED]') +
       (paused ? '  [PAUSED]' : (stepsPerFrame > 1 ? `  x${stepsPerFrame}` : ''));
     updateInspector();
   } catch (e) {

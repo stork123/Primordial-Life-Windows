@@ -143,23 +143,51 @@ function updateInspector() {
     (b.nSick ? '\n** SICK **' : '');
 }
 
+let lastFrameEnd = performance.now();
+let heapAtLastLog = (performance.memory && performance.memory.usedJSHeapSize) || 0;
+
 function frame() {
+  const frameStart = performance.now();
+  const gap = frameStart - lastFrameEnd; // time spent OUTSIDE our code since last frame ended
   try {
+    const stepStart = performance.now();
     if (!paused) for (let s = 0; s < stepsPerFrame; s++) env.step();
+    const stepEnd = performance.now();
+
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.lineWidth = 1;
     drawAllBiots();
+    const drawEnd = performance.now();
+
     hud.textContent =
       `Primordial Life  |  pop ${env.biots.length}  gen ${env.stats.generation}` +
       `  births ${env.stats.births}  deaths ${env.stats.deaths}` +
       `  extinctions ${env.stats.extinctions}` +
       (paused ? '  [PAUSED]' : (stepsPerFrame > 1 ? `  x${stepsPerFrame}` : ''));
     updateInspector();
+
+    const stepMs = stepEnd - stepStart;
+    const drawMs = drawEnd - stepEnd;
+    const frameMs = drawEnd - frameStart;
+    // Only fires when something is actually slow — near-zero cost the rest of the time.
+    if (gap > 150 || frameMs > 150) {
+      const heap = (performance.memory && performance.memory.usedJSHeapSize) || 0;
+      const heapDeltaMB = ((heap - heapAtLastLog) / (1024 * 1024)).toFixed(1);
+      const heapMB = (heap / (1024 * 1024)).toFixed(1);
+      console.warn(
+        `[PERF] pause detected: gap=${gap.toFixed(0)}ms (time between frames, likely GC/OS) ` +
+        `step=${stepMs.toFixed(1)}ms draw=${drawMs.toFixed(1)}ms frameTotal=${frameMs.toFixed(1)}ms ` +
+        `pop=${env.biots.length} gen=${env.stats.generation} births=${env.stats.births} deaths=${env.stats.deaths} ` +
+        `heap=${heapMB}MB (Δ${heapDeltaMB}MB since last log)`
+      );
+      heapAtLastLog = heap;
+    }
   } catch (e) {
     console.error('frame() error (sim/render continues):', e && e.stack || e);
     hud.textContent = `Primordial Life  |  ERROR — check log, press R to restart: ${e && e.message}`;
   }
+  lastFrameEnd = performance.now();
   requestAnimationFrame(frame);
 }
 

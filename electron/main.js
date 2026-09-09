@@ -3,6 +3,8 @@ const { app, BrowserWindow, Menu } = require("electron");
 const path = require("path");
 const fs = require("fs");
 
+app.commandLine.appendSwitch("enable-precise-memory-info");
+
 const logDir = app.getPath("userData");
 const logFile = path.join(logDir, "primlife.log");
 function log(line) {

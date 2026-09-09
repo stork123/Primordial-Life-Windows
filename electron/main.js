@@ -56,6 +56,17 @@ function createWindow() {
 
 process.on("uncaughtException", (err) => log(`MAIN UNCAUGHT: ${err.stack || err}`));
 
+// Independent heartbeat from the main process (separate from renderer/GPU).
+// If this keeps ticking on schedule during a visible freeze, the stall is isolated
+// to the renderer process or GPU/compositor, not the whole app / OS.
+let lastMainHeartbeat = Date.now();
+setInterval(() => {
+  const now = Date.now();
+  const gap = now - lastMainHeartbeat;
+  lastMainHeartbeat = now;
+  if (gap > 2500) log(`MAIN HEARTBEAT LATE: gap=${gap}ms`);
+}, 2000);
+
 app.on("window-all-closed", () => app.quit());
 app.on("activate", () => {
   if (BrowserWindow.getAllWindows().length === 0) createWindow();

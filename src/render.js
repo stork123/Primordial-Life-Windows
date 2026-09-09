@@ -192,3 +192,22 @@ function frame() {
 }
 
 requestAnimationFrame(frame);
+
+// --- Heartbeat: independent of requestAnimationFrame / canvas compositing ---
+// If a visual pause is a GPU/compositor stall (script keeps running, screen just
+// doesn't repaint), this will keep ticking on schedule right through it.
+// If the pause is a real JS-thread block (GC, blocking call), this will also stall,
+// which tells us it's NOT a compositor-only issue.
+let lastHeartbeat = Date.now();
+setInterval(() => {
+  const now = Date.now();
+  const wallGap = now - lastHeartbeat;
+  lastHeartbeat = now;
+  const heap = (performance.memory && performance.memory.usedJSHeapSize) || 0;
+  const heapMB = (heap / (1024 * 1024)).toFixed(1);
+  const line = `[HEARTBEAT] wallGap=${wallGap}ms pop=${env ? env.biots.length : '?'} ` +
+    `gen=${env ? env.stats.generation : '?'} births=${env ? env.stats.births : '?'} ` +
+    `deaths=${env ? env.stats.deaths : '?'} heap=${heapMB}MB`;
+  if (wallGap > 2500) console.warn(line); // only log if the interval itself was late (JS-thread stall)
+  else console.log(line); // routine tick, always recorded so we have a timeline to compare against
+}, 2000);

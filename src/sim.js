@@ -123,6 +123,7 @@ class Biot {
     this.fatherId = 0; this.mateId = 0; this.motherId = 0;
     this.generation = 0; this.age = 0; this.maxAge = 0;
     this.nSick = 0; this.newType = -2; this.ratio = 1;
+    this.chaosTicks = 0;
     this.energy = 0; this.adultBaseEnergy = 0; this.childBaseEnergy = 0;
     this.stepEnergy = 0; this.totalDistance = 0; this.turnBenefit = 0;
     this.bInjured = false; this.bRedraw = false; this.internalState = 0;
@@ -634,6 +635,13 @@ class Biot {
 
   move() {
     this.age++;
+    if (this.chaosTicks > 0) {
+      this.chaosTicks--;
+      const rand = new Randomizer();
+      this.vector.setDeltaX(rand.Float() * LIMIT);
+      this.vector.setDeltaY(rand.Float() * LIMIT);
+      this.vector.setDeltaRotate(rand.Float() * RLIMIT);
+    }
     const center = { x: this.centerX(), y: this.centerY() };
     let dr = this.vector.tryRotate(this.origin, center);
     let dx = this.vector.tryStepX();
@@ -859,6 +867,28 @@ class Environment {
       b.randomCreate(this.options.armsPerBiot, this.options.typesPerBiot, this.options.segmentsPerArm);
       this.biots.push(b);
     }
+  }
+
+  // ---- manual biot actions (right-click context menu) ----
+  killBiot(b) {
+    const i = this.biots.indexOf(b);
+    if (i === -1) return false;
+    this.biots.splice(i, 1);
+    this.stats.deaths++;
+    return true;
+  }
+  replicateBiot(b) {
+    const nBiot = new Biot(this);
+    this.stats.births++;
+    nBiot.copyFromParent(b);
+    if (!nBiot.placeNear(b)) { this.stats.deaths++; return null; }
+    this.addBiot(nBiot);
+    nBiot.setBonus();
+    this.emit('birth');
+    return nBiot;
+  }
+  makeChaotic(b, ticks) {
+    b.chaosTicks = ticks;
   }
   hitCheck(me) {
     // Spatial hash: check current cell + 8 neighbors

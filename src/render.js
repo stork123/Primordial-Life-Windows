@@ -82,7 +82,7 @@ window.addEventListener('keydown', (e) => {
   else if (e.key === 'r' || e.key === 'R') newWorld();
   else if (e.key === 'e' || e.key === 'E') editor.toggle();
   else if (e.key === 'g' || e.key === 'G') guide.toggle();
-  else if (e.key === 'Escape') { if (guide.visible) guide.hide(); else if (editor && editor.visible) editor.hide(); }
+  else if (e.key === 'Escape') { if (guide.visible) guide.hide(); else if (editor && editor.visible) editor.hide(); else hideContextMenu(); }
   else if (e.key === '+' || e.key === '=') stepsPerFrame = Math.min(16, stepsPerFrame + 1);
   else if (e.key === '-') stepsPerFrame = Math.max(1, stepsPerFrame - 1);
 });
@@ -91,11 +91,79 @@ canvas.addEventListener('mousedown', (e) => {
   const x = e.clientX, y = e.clientY;
   if (editor && editor.visible) return; // ignore clicks on world while editor open
   if (pendingRelease && placePendingRelease(x, y)) return;
+  hideContextMenu();
   selected = null;
   for (const b of env.biots) {
     if (x >= b.left && x <= b.right && y >= b.top && y <= b.bottom) { selected = b; break; }
   }
   if (!selected) inspector.style.display = 'none';
+});
+
+function biotAt(x, y) {
+  for (const b of env.biots) {
+    if (x >= b.left && x <= b.right && y >= b.top && y <= b.bottom) return b;
+  }
+  return null;
+}
+
+// --- Right-click context menu: kill / replicate / make chaotic ---
+const CHAOS_TICKS = 300; // ~5s of sim-time at default 1x speed (60fps, 1 step/frame)
+const contextMenu = document.createElement('div');
+contextMenu.id = 'biot-context-menu';
+contextMenu.style.cssText =
+  'position:fixed; display:none; z-index:200; background:#111; color:#cfc; ' +
+  'border:1px solid #0f0; font-family:monospace; font-size:13px; min-width:140px; ' +
+  'box-shadow:2px 2px 6px rgba(0,0,0,0.6);';
+contextMenu.innerHTML = `
+  <div class="cm-item" data-action="kill" style="padding:6px 10px; cursor:pointer;">Kill</div>
+  <div class="cm-item" data-action="replicate" style="padding:6px 10px; cursor:pointer;">Replicate</div>
+  <div class="cm-item" data-action="chaos" style="padding:6px 10px; cursor:pointer;">Make chaotic (5s)</div>
+`;
+document.body.appendChild(contextMenu);
+for (const item of contextMenu.querySelectorAll('.cm-item')) {
+  item.addEventListener('mouseenter', () => { item.style.background = '#0f0'; item.style.color = '#000'; });
+  item.addEventListener('mouseleave', () => { item.style.background = ''; item.style.color = '#cfc'; });
+}
+
+let contextTarget = null;
+
+function showContextMenu(x, y, biot) {
+  contextTarget = biot;
+  contextMenu.style.left = x + 'px';
+  contextMenu.style.top = y + 'px';
+  contextMenu.style.display = 'block';
+}
+
+function hideContextMenu() {
+  contextMenu.style.display = 'none';
+  contextTarget = null;
+}
+
+contextMenu.addEventListener('click', (e) => {
+  const item = e.target.closest('.cm-item');
+  if (!item || !contextTarget) { hideContextMenu(); return; }
+  const action = item.dataset.action;
+  if (action === 'kill') {
+    if (contextTarget === selected) { selected = null; inspector.style.display = 'none'; }
+    env.killBiot(contextTarget);
+  } else if (action === 'replicate') {
+    env.replicateBiot(contextTarget);
+  } else if (action === 'chaos') {
+    env.makeChaotic(contextTarget, CHAOS_TICKS);
+  }
+  hideContextMenu();
+});
+
+canvas.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  if (editor && editor.visible) return;
+  const b = biotAt(e.clientX, e.clientY);
+  if (b) showContextMenu(e.clientX, e.clientY, b);
+  else hideContextMenu();
+});
+
+window.addEventListener('mousedown', (e) => {
+  if (contextMenu.style.display === 'block' && !contextMenu.contains(e.target)) hideContextMenu();
 });
 
 function drawAllBiots() {

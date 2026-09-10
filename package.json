@@ -1,6 +1,6 @@
 {
   "name": "primlife",
-  "version": "1.5.11",
+  "version": "1.5.12",
   "description": "Primordial Life — artificial life simulator (port of Jason Spofford's 1995-98 GPL original)",
   "main": "electron/main.js",
   "license": "AGPL-3.0-or-later",
